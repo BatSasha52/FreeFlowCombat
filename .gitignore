@@ -1,0 +1,57 @@
+# ---- Unreal Engine generated / build output ----
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+**/Binaries/
+**/Intermediate/
+*.uatbuildrecord
+
+# Per-user editor content
+Content/Developers/
+Content/Collections/
+
+# ---- Visual Studio / IDEs (regenerated from the .uproject) ----
+.vs/
+.vscode/
+.idea/
+*.sln
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.vsconfig
+.vsconfig
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.suo
+*.vsidx
+*.vspscc
+*.user
+*.code-workspace
+CopilotIndices/
+BlueprintCache/
+
+# ---- Compiled artifacts ----
+*.dll
+*.exe
+*.pdb
+*.lib
+*.exp
+*.ilk
+*.obj
+*.o
+*.pch
+*.ipch
+*.target
+*.modules
+
+# ---- Tooling / OS ----
+.claude/settings.local.json
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

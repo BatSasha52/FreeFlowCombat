@@ -1,0 +1,3 @@
+[submodule "Plugins/AnimMCPToolset"]
+	path = Plugins/AnimMCPToolset
+	url = https://github.com/BatSasha52/AnimMCPToolset.git

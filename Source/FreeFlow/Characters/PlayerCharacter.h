@@ -9,7 +9,7 @@
 /**
  * 
  */
-class USpringArmComponent;
+class UFreeFlowSpringArmComponent;
 class UCameraComponent;
 class UCapeAnchorComponent;
 class UInputMappingContext;
@@ -23,7 +23,7 @@ class FREEFLOW_API APlayerCharacter : public AFreeFlowCharacter
 
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
+	UFreeFlowSpringArmComponent* CameraBoom;
 
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -57,6 +57,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	float Range = 400.f;
 
+	UPROPERTY(EditAnywhere, Category = Camera, meta = (ClampMin = "0", Units = "s"))
+	float CombatCameraDuration = 4.f;
+
 protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
@@ -75,6 +78,16 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void NotifyControllerChanged() override;
 
+	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
+	void EnterCombat();
+	void ExitCombat();
+	void RefreshCameraMode();
+
+	bool bInCombat = false;
+	FTimerHandle CombatTimer;
+
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	TArray<AActor*> FindEnemiesWithinRange();
 	AActor* FindBestEnemyToAttack(const TArray<AActor*>& Enemies);
@@ -84,7 +97,7 @@ protected:
 
 public:
 	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE class UFreeFlowSpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 

@@ -16,6 +16,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Movement/FreeFlowCharacterMovementComponent.h"
 #include "Characters/CapeAnchorComponent.h"
+#include "Camera/FreeFlowSpringArmComponent.h"
+#include "TimerManager.h"
 
 APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -28,9 +30,8 @@ APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	GetFreeFlowCharacterMovement()->SetRotationMode(EFreeFlowRotationMode::LookingDirection);
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom = CreateDefaultSubobject<UFreeFlowSpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
 	// Create a follow camera
@@ -126,6 +127,7 @@ void APlayerCharacter::Attack()
 		return;
 	}
    UE_LOG(LogTemp, Warning, TEXT("Target Enemy: %s"), *TargetEnemy->GetName());
+   EnterCombat();
 	
    FVector TargetEnemyLocation = TargetEnemy->GetActorLocation();
    FRotator TargetEnemyRotation = TargetEnemy->GetActorRotation();
@@ -149,6 +151,37 @@ void APlayerCharacter::Attack()
        EMoveComponentAction::Move,
 	   LatentInfo);
    UE_LOG(LogTemp, Warning, TEXT("Character should've moved"));
+}
+
+void APlayerCharacter::EnterCombat()
+{
+	bInCombat = true;
+	GetWorldTimerManager().SetTimer(CombatTimer, this, &APlayerCharacter::ExitCombat, CombatCameraDuration);
+	RefreshCameraMode();
+}
+
+void APlayerCharacter::ExitCombat()
+{
+	bInCombat = false;
+	RefreshCameraMode();
+}
+
+void APlayerCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
+{
+	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	RefreshCameraMode();
+}
+
+void APlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
+{
+	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	RefreshCameraMode();
+}
+
+void APlayerCharacter::RefreshCameraMode()
+{
+	const bool bWantsActionCamera = bInCombat || bIsCrouched;
+	CameraBoom->SetCameraMode(bWantsActionCamera ? EFreeFlowCameraMode::Action : EFreeFlowCameraMode::Exploration);
 }
 
 void APlayerCharacter::StopAttacking()

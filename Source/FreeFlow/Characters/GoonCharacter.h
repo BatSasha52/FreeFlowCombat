@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FreeFlowCharacter.h"
+#include "Characters/FreeFlowCharacter.h"
 #include "GoonCharacter.generated.h"
 
 /**

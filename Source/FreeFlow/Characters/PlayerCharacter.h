@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FreeFlowCharacter.h"
+#include "Characters/FreeFlowCharacter.h"
 #include "PlayerCharacter.generated.h"
 
 /**
@@ -11,6 +11,7 @@
  */
 class USpringArmComponent;
 class UCameraComponent;
+class UCapeAnchorComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -27,6 +28,9 @@ class FREEFLOW_API APlayerCharacter : public AFreeFlowCharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Cape, meta = (AllowPrivateAccess = "true"))
+	UCapeAnchorComponent* CapeAnchor;
 
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -48,7 +52,7 @@ class FREEFLOW_API APlayerCharacter : public AFreeFlowCharacter
 	UInputAction* AttackAction;
 
 public:
-	APlayerCharacter();
+	APlayerCharacter(const FObjectInitializer& ObjectInitializer);
 
 	UPROPERTY(EditAnywhere)
 	float Range = 400.f;

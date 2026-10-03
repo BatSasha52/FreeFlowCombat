@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "FreeFlowCharacter.h"
+#include "Characters/FreeFlowCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -10,13 +10,15 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Movement/FreeFlowCharacterMovementComponent.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
 // AFreeFlowCharacter
 
-AFreeFlowCharacter::AFreeFlowCharacter()
+AFreeFlowCharacter::AFreeFlowCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UFreeFlowCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -33,6 +35,11 @@ AFreeFlowCharacter::AFreeFlowCharacter()
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
+}
+
+UFreeFlowCharacterMovementComponent* AFreeFlowCharacter::GetFreeFlowCharacterMovement() const
+{
+	return CastChecked<UFreeFlowCharacterMovementComponent>(GetCharacterMovement());
 }
 
 void AFreeFlowCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

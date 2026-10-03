@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "FreeFlowGameMode.h"
-#include "FreeFlowCharacter.h"
+#include "Game/FreeFlowGameMode.h"
+#include "Characters/FreeFlowCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 AFreeFlowGameMode::AFreeFlowGameMode()

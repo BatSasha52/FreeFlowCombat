@@ -18,6 +18,7 @@
 #include "Characters/CapeAnchorComponent.h"
 #include "Camera/FreeFlowSpringArmComponent.h"
 #include "TimerManager.h"
+#include "Movement/FreeFlowLocomotionComponent.h"
 
 APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -26,8 +27,6 @@ APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-
-	GetFreeFlowCharacterMovement()->SetRotationMode(EFreeFlowRotationMode::LookingDirection);
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<UFreeFlowSpringArmComponent>(TEXT("CameraBoom"));
@@ -40,6 +39,15 @@ APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 	CapeAnchor = CreateDefaultSubobject<UCapeAnchorComponent>(TEXT("CapeAnchor"));
+
+	Locomotion = CreateDefaultSubobject<UFreeFlowLocomotionComponent>(TEXT("Locomotion"));
+}
+
+void APlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	Locomotion->OnStateChanged.AddDynamic(this, &APlayerCharacter::HandleLocomotionStateChanged);
 }
 
 void APlayerCharacter::NotifyControllerChanged()
@@ -63,9 +71,11 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::SprintStarted);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::SprintCompleted);
+
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &APlayerCharacter::CrouchStarted);
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &APlayerCharacter::CrouchCompleted);
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Move);
@@ -113,6 +123,35 @@ void APlayerCharacter::Look(const FInputActionValue& Value)
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
+}
+
+void APlayerCharacter::SprintStarted()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	const bool bDoubleTap = LastSprintPressTime >= 0.0 && Now - LastSprintPressTime <= RollDoubleTapWindow;
+	LastSprintPressTime = bDoubleTap ? -1.0 : Now;
+
+	if (bDoubleTap && Locomotion->TryRoll())
+	{
+		return;
+	}
+
+	Locomotion->SetWantsToSprint(true);
+}
+
+void APlayerCharacter::SprintCompleted()
+{
+	Locomotion->SetWantsToSprint(false);
+}
+
+void APlayerCharacter::CrouchStarted()
+{
+	Locomotion->SetWantsToCrouch(true);
+}
+
+void APlayerCharacter::CrouchCompleted()
+{
+	Locomotion->SetWantsToCrouch(false);
 }
 
 void APlayerCharacter::Attack()  
@@ -166,21 +205,28 @@ void APlayerCharacter::ExitCombat()
 	RefreshCameraMode();
 }
 
-void APlayerCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
+void APlayerCharacter::HandleLocomotionStateChanged(EFreeFlowLocomotionState PreviousState, EFreeFlowLocomotionState NewState)
 {
-	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
-	RefreshCameraMode();
-}
+	switch (NewState)
+	{
+	case EFreeFlowLocomotionState::Standing:
+		bLocomotionWantsActionCamera = false;
+		break;
+	case EFreeFlowLocomotionState::Running:
+	case EFreeFlowLocomotionState::Crouching:
+	case EFreeFlowLocomotionState::Sliding:
+		bLocomotionWantsActionCamera = true;
+		break;
+	default:
+		break;
+	}
 
-void APlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
-{
-	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 	RefreshCameraMode();
 }
 
 void APlayerCharacter::RefreshCameraMode()
 {
-	const bool bWantsActionCamera = bInCombat || bIsCrouched;
+	const bool bWantsActionCamera = bInCombat || bLocomotionWantsActionCamera;
 	CameraBoom->SetCameraMode(bWantsActionCamera ? EFreeFlowCameraMode::Action : EFreeFlowCameraMode::Exploration);
 }
 

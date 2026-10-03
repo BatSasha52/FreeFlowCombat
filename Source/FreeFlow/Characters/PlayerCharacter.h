@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Characters/FreeFlowCharacter.h"
+#include "Movement/FreeFlowLocomotionComponent.h"
 #include "PlayerCharacter.generated.h"
 
 /**
@@ -12,6 +13,7 @@
 class UFreeFlowSpringArmComponent;
 class UCameraComponent;
 class UCapeAnchorComponent;
+class UFreeFlowLocomotionComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
@@ -32,13 +34,18 @@ class FREEFLOW_API APlayerCharacter : public AFreeFlowCharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Cape, meta = (AllowPrivateAccess = "true"))
 	UCapeAnchorComponent* CapeAnchor;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
+	UFreeFlowLocomotionComponent* Locomotion;
+
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
 
-	/** Jump Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* JumpAction;
+	UInputAction* SprintAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* CrouchAction;
 
 	/** Move Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -60,12 +67,23 @@ public:
 	UPROPERTY(EditAnywhere, Category = Camera, meta = (ClampMin = "0", Units = "s"))
 	float CombatCameraDuration = 4.f;
 
+	UPROPERTY(EditAnywhere, Category = Input, meta = (ClampMin = "0", Units = "s"))
+	float RollDoubleTapWindow = 0.3f;
+
 protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
+
+	void SprintStarted();
+
+	void SprintCompleted();
+
+	void CrouchStarted();
+
+	void CrouchCompleted();
 
 	void Attack();
 
@@ -77,15 +95,18 @@ protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void NotifyControllerChanged() override;
+	virtual void BeginPlay() override;
 
-	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	UFUNCTION()
+	void HandleLocomotionStateChanged(EFreeFlowLocomotionState PreviousState, EFreeFlowLocomotionState NewState);
 
 	void EnterCombat();
 	void ExitCombat();
 	void RefreshCameraMode();
 
 	bool bInCombat = false;
+	bool bLocomotionWantsActionCamera = false;
+	double LastSprintPressTime = -1.0;
 	FTimerHandle CombatTimer;
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")

@@ -32,15 +32,19 @@ public:
 	void SetScriptedHorizontalVelocity(const FVector& HorizontalVelocity);
 	bool IsInScriptedMovement() const { return bInScriptedMovement; }
 
+	void SetRotationLocked(bool bLocked) { bRotationLocked = bLocked; }
+
 protected:
 	virtual FRotator ComputeOrientToMovementRotation(const FRotator& CurrentRotation, float DeltaTime, FRotator& DeltaRotation) const override;
 	virtual FVector ScaleInputAcceleration(const FVector& InputAcceleration) const override;
+	virtual void PhysicsRotation(float DeltaTime) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character Movement (Rotation Settings)", meta = (EditCondition = "bOrientRotationToMovement"))
 	EFreeFlowRotationMode RotationMode = EFreeFlowRotationMode::VelocityDirection;
 
 private:
 	bool bInScriptedMovement = false;
+	bool bRotationLocked = false;
 	float SavedGroundFriction = 0.f;
 	float SavedBrakingDecelerationWalking = 0.f;
 };

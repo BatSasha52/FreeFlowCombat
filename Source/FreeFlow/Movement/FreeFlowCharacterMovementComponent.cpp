@@ -88,6 +88,14 @@ FRotator UFreeFlowCharacterMovementComponent::ComputeOrientToMovementRotation(co
 	return Super::ComputeOrientToMovementRotation(CurrentRotation, DeltaTime, DeltaRotation);
 }
 
+void UFreeFlowCharacterMovementComponent::PhysicsRotation(float DeltaTime)
+{
+	if (!bRotationLocked)
+	{
+		Super::PhysicsRotation(DeltaTime);
+	}
+}
+
 FVector UFreeFlowCharacterMovementComponent::ScaleInputAcceleration(const FVector& InputAcceleration) const
 {
 	return bInScriptedMovement ? FVector::ZeroVector : Super::ScaleInputAcceleration(InputAcceleration);

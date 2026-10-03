@@ -16,6 +16,9 @@ class UCapeAnchorComponent;
 class UFreeFlowLocomotionComponent;
 class UInputMappingContext;
 class UInputAction;
+class UAnimInstance;
+class UAnimSequenceBase;
+class UAnimMontage;
 struct FInputActionValue;
 
 UCLASS()
@@ -70,6 +73,21 @@ public:
 	UPROPERTY(EditAnywhere, Category = Input, meta = (ClampMin = "0", Units = "s"))
 	float RollDoubleTapWindow = 0.3f;
 
+	UPROPERTY(EditAnywhere, Category = Combat)
+	TArray<TObjectPtr<UAnimSequenceBase>> PunchAnimations;
+
+	UPROPERTY(EditAnywhere, Category = Combat, meta = (ClampMin = "0.1"))
+	float PunchPlayRate = 1.5f;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	FName PunchSlotName = TEXT("DefaultSlot");
+
+	UPROPERTY(EditAnywhere, Category = Combat, meta = (ClampMin = "0", Units = "s"))
+	float PunchBlendTime = 0.15f;
+
+	UPROPERTY(EditAnywhere, Category = Combat, meta = (ClampMin = "0", Units = "s"))
+	float PunchComboWindow = 0.35f;
+
 protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
@@ -89,6 +107,23 @@ protected:
 
 	void StopAttacking();
 
+	bool PlayPunch();
+
+	void StopPunch();
+
+	void OnPunchBlendingOut(UAnimMontage* Montage, bool bInterrupted);
+
+	bool IsPunching() const { return ActivePunchMontage != nullptr; }
+
+	bool CanStartPunch() const;
+
+	FLatentActionInfo MakeAttackMoveLatentInfo();
+
+	UAnimInstance* GetBodyAnimInstance() const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActivePunchMontage;
+
 	bool bPressedAttack = false;
 
 protected:
@@ -107,6 +142,7 @@ protected:
 	bool bInCombat = false;
 	bool bLocomotionWantsActionCamera = false;
 	double LastSprintPressTime = -1.0;
+	int32 LastPunchIndex = INDEX_NONE;
 	FTimerHandle CombatTimer;
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")

@@ -33,6 +33,7 @@ void UCapeAnchorComponent::BeginPlay()
 
 	const FReferenceSkeleton& RefSkeleton = BodyMesh->GetSkinnedAsset()->GetRefSkeleton();
 	ParentBoneIndex = RefSkeleton.FindBoneIndex(CapeComponent->GetAttachSocketName());
+	UprightPivotBoneIndex = RefSkeleton.FindBoneIndex(UprightPivotBone);
 
 	AnchorBoneIndices.Reset();
 	for (const FName& BoneName : AnchorBones)
@@ -58,6 +59,7 @@ void UCapeAnchorComponent::BeginPlay()
 	}
 	RestAnchorLocation = RestSum / AnchorBoneIndices.Num();
 	BaseRelativeLocation = CapeComponent->GetRelativeLocation();
+	BaseRelativeRotation = CapeComponent->GetRelativeRotation();
 
 	AddTickPrerequisiteComponent(BodyMesh);
 	CapeComponent->AddTickPrerequisiteComponent(this);
@@ -78,10 +80,35 @@ void UCapeAnchorComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	FVector AnchorLocation;
-	if (CapeComponent && GetCurrentAnchorLocation(AnchorLocation))
+	if (!CapeComponent || !GetCurrentAnchorLocation(AnchorLocation))
 	{
-		CapeComponent->SetRelativeLocation(BaseRelativeLocation + (AnchorLocation - RestAnchorLocation) * GetFollowWeight());
+		return;
 	}
+
+	const float FollowWeight = FollowWeightCurve.IsNone() ? 1.f : GetCurveWeight(FollowWeightCurve);
+	CapeComponent->SetRelativeLocationAndRotation(BaseRelativeLocation + (AnchorLocation - RestAnchorLocation) * FollowWeight, BaseRelativeRotation);
+
+	const float UprightWeight = GetCurveWeight(UprightWeightCurve);
+	if (UprightWeight > 0.f)
+	{
+		ApplyUpright(UprightWeight);
+	}
+}
+
+void UCapeAnchorComponent::ApplyUpright(float Weight)
+{
+	FVector Pivot;
+	if (!GetUprightPivot(Pivot))
+	{
+		return;
+	}
+
+	const FQuat CurrentRotation = CapeComponent->GetComponentQuat();
+	const FQuat UprightRotation = FQuat::Slerp(CurrentRotation, BodyMesh->GetComponentQuat(), Weight);
+	const FQuat Delta = UprightRotation * CurrentRotation.Inverse();
+	const FVector Location = Pivot + Delta.RotateVector(CapeComponent->GetComponentLocation() - Pivot);
+
+	CapeComponent->SetWorldLocationAndRotation(Location, UprightRotation);
 }
 
 bool UCapeAnchorComponent::GetCurrentAnchorLocation(FVector& OutLocation) const
@@ -112,13 +139,42 @@ bool UCapeAnchorComponent::GetCurrentAnchorLocation(FVector& OutLocation) const
 	return true;
 }
 
-float UCapeAnchorComponent::GetFollowWeight() const
+bool UCapeAnchorComponent::GetUprightPivot(FVector& OutWorldLocation) const
 {
-	if (FollowWeightCurve.IsNone())
+	FVector ComponentLocation;
+	const TArray<FTransform>& Pose = BodyMesh->GetComponentSpaceTransforms();
+	if (Pose.IsValidIndex(UprightPivotBoneIndex))
 	{
-		return 1.f;
+		ComponentLocation = Pose[UprightPivotBoneIndex].GetLocation();
+	}
+	else if (!GetAnchorComponentLocation(ComponentLocation))
+	{
+		return false;
 	}
 
-	const UAnimInstance* AnimInstance = BodyMesh ? BodyMesh->GetAnimInstance() : nullptr;
-	return AnimInstance ? FMath::Clamp(AnimInstance->GetCurveValue(FollowWeightCurve), 0.f, 1.f) : 0.f;
+	OutWorldLocation = BodyMesh->GetComponentTransform().TransformPosition(ComponentLocation);
+	return true;
+}
+
+bool UCapeAnchorComponent::GetAnchorComponentLocation(FVector& OutLocation) const
+{
+	const TArray<FTransform>& Pose = BodyMesh->GetComponentSpaceTransforms();
+	FVector Sum = FVector::ZeroVector;
+	for (const int32 BoneIndex : AnchorBoneIndices)
+	{
+		if (!Pose.IsValidIndex(BoneIndex))
+		{
+			return false;
+		}
+		Sum += Pose[BoneIndex].GetLocation();
+	}
+
+	OutLocation = Sum / AnchorBoneIndices.Num();
+	return true;
+}
+
+float UCapeAnchorComponent::GetCurveWeight(FName CurveName) const
+{
+	const UAnimInstance* AnimInstance = BodyMesh && !CurveName.IsNone() ? BodyMesh->GetAnimInstance() : nullptr;
+	return AnimInstance ? FMath::Clamp(AnimInstance->GetCurveValue(CurveName), 0.f, 1.f) : 0.f;
 }

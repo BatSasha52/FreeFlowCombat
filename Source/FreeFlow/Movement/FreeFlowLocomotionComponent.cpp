@@ -59,6 +59,10 @@ void UFreeFlowLocomotionComponent::TickComponent(float DeltaTime, ELevelTick Tic
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	TimeInState += DeltaTime;
+	if (bWantsToSprint)
+	{
+		SprintHoldTime += DeltaTime;
+	}
 	UpdateState();
 	UpdateAction();
 }
@@ -66,6 +70,7 @@ void UFreeFlowLocomotionComponent::TickComponent(float DeltaTime, ELevelTick Tic
 void UFreeFlowLocomotionComponent::SetWantsToSprint(bool bWants)
 {
 	bWantsToSprint = bWants;
+	SprintHoldTime = 0.f;
 	if (Movement)
 	{
 		UpdateState();
@@ -104,6 +109,11 @@ float UFreeFlowLocomotionComponent::GetActionAnimationTime() const
 bool UFreeFlowLocomotionComponent::HasMoveInput() const
 {
 	return Character && !Character->GetLastMovementInputVector().IsNearlyZero();
+}
+
+bool UFreeFlowLocomotionComponent::CanAttack() const
+{
+	return State == EFreeFlowLocomotionState::Standing || State == EFreeFlowLocomotionState::Running;
 }
 
 void UFreeFlowLocomotionComponent::UpdateState()
@@ -146,7 +156,7 @@ EFreeFlowLocomotionState UFreeFlowLocomotionComponent::SelectGroundedState() con
 		return EFreeFlowLocomotionState::Crouching;
 	}
 
-	if (bWantsToSprint && HasMoveInput())
+	if (bWantsToSprint && SprintHoldTime >= SprintStartDelay && HasMoveInput())
 	{
 		return EFreeFlowLocomotionState::Running;
 	}

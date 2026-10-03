@@ -19,6 +19,10 @@
 #include "Camera/FreeFlowSpringArmComponent.h"
 #include "TimerManager.h"
 #include "Movement/FreeFlowLocomotionComponent.h"
+#include "Animation/FreeFlowAnimInstance.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimMontage.h"
+#include "Components/SkeletalMeshComponent.h"
 
 APlayerCharacter::APlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -131,12 +135,12 @@ void APlayerCharacter::SprintStarted()
 	const bool bDoubleTap = LastSprintPressTime >= 0.0 && Now - LastSprintPressTime <= RollDoubleTapWindow;
 	LastSprintPressTime = bDoubleTap ? -1.0 : Now;
 
-	if (bDoubleTap && Locomotion->TryRoll())
-	{
-		return;
-	}
-
 	Locomotion->SetWantsToSprint(true);
+
+	if (bDoubleTap)
+	{
+		Locomotion->TryRoll();
+	}
 }
 
 void APlayerCharacter::SprintCompleted()
@@ -157,6 +161,11 @@ void APlayerCharacter::CrouchCompleted()
 void APlayerCharacter::Attack()  
 {  
 	UE_LOG(LogTemp, Warning, TEXT("Attack Started"));
+	if (!CanStartPunch() || !Locomotion->CanAttack())
+	{
+		return;
+	}
+
    bPressedAttack = true;  
    TArray<AActor*> Enemies = FindEnemiesWithinRange();
    AActor* TargetEnemy = FindBestEnemyToAttack(Enemies);
@@ -169,27 +178,114 @@ void APlayerCharacter::Attack()
    EnterCombat();
 	
    FVector TargetEnemyLocation = TargetEnemy->GetActorLocation();
+   PlayPunch();
    FRotator TargetEnemyRotation = TargetEnemy->GetActorRotation();
    FVector EnemyForwardVector = UKismetMathLibrary::GetForwardVector(TargetEnemyRotation) * 35.f;
 
    FVector TargetLocation = EnemyForwardVector + TargetEnemyLocation;
 
-   FLatentActionInfo LatentInfo;
-   LatentInfo.Linkage = 0;
-   LatentInfo.CallbackTarget = this;
-   LatentInfo.ExecutionFunction = FName("OnMoveCompleted");
+   const FRotator FaceEnemyRotation(0.f, (TargetEnemyLocation - GetActorLocation()).Rotation().Yaw, 0.f);
 
    UKismetSystemLibrary::MoveComponentTo(  
        Cast<USceneComponent>(GetCapsuleComponent()),  
 	   TargetLocation,
-	   this->GetActorRotation(),
+	   FaceEnemyRotation,
        false,
        false, 
        0.6f,
 	   true,
        EMoveComponentAction::Move,
-	   LatentInfo);
+	   MakeAttackMoveLatentInfo());
    UE_LOG(LogTemp, Warning, TEXT("Character should've moved"));
+}
+
+bool APlayerCharacter::PlayPunch()
+{
+	UAnimInstance* AnimInstance = GetBodyAnimInstance();
+	if (!AnimInstance || PunchAnimations.IsEmpty())
+	{
+		return false;
+	}
+
+	int32 Index = FMath::RandRange(0, PunchAnimations.Num() - 1);
+	if (PunchAnimations.Num() > 1 && Index == LastPunchIndex)
+	{
+		Index = (Index + 1) % PunchAnimations.Num();
+	}
+	LastPunchIndex = Index;
+
+	UAnimSequenceBase* Punch = PunchAnimations[Index];
+	ActivePunchMontage = Punch ? AnimInstance->PlaySlotAnimationAsDynamicMontage(Punch, PunchSlotName, PunchBlendTime, PunchBlendTime, PunchPlayRate) : nullptr;
+	if (!ActivePunchMontage)
+	{
+		return false;
+	}
+
+	FOnMontageBlendingOutStarted BlendingOutDelegate;
+	BlendingOutDelegate.BindUObject(this, &APlayerCharacter::OnPunchBlendingOut);
+	AnimInstance->Montage_SetBlendingOutDelegate(BlendingOutDelegate, ActivePunchMontage);
+
+	GetFreeFlowCharacterMovement()->SetRotationLocked(true);
+	return true;
+}
+
+bool APlayerCharacter::CanStartPunch() const
+{
+	const UAnimInstance* AnimInstance = IsPunching() ? GetBodyAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		return true;
+	}
+
+	const float RemainingTime = (ActivePunchMontage->GetPlayLength() - AnimInstance->Montage_GetPosition(ActivePunchMontage)) / PunchPlayRate;
+	return RemainingTime <= PunchComboWindow;
+}
+
+void APlayerCharacter::StopPunch()
+{
+	if (!IsPunching())
+	{
+		return;
+	}
+
+	UKismetSystemLibrary::MoveComponentTo(GetCapsuleComponent(), GetActorLocation(), GetActorRotation(), false, false, 0.f, true, EMoveComponentAction::Stop, MakeAttackMoveLatentInfo());
+
+	if (UAnimInstance* AnimInstance = GetBodyAnimInstance())
+	{
+		AnimInstance->Montage_Stop(PunchBlendTime, ActivePunchMontage);
+	}
+}
+
+void APlayerCharacter::OnPunchBlendingOut(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (Montage == ActivePunchMontage)
+	{
+		ActivePunchMontage = nullptr;
+		GetFreeFlowCharacterMovement()->SetRotationLocked(false);
+	}
+}
+
+FLatentActionInfo APlayerCharacter::MakeAttackMoveLatentInfo()
+{
+	FLatentActionInfo LatentInfo;
+	LatentInfo.Linkage = 0;
+	LatentInfo.UUID = GetUniqueID();
+	LatentInfo.CallbackTarget = this;
+	LatentInfo.ExecutionFunction = FName("OnMoveCompleted");
+	return LatentInfo;
+}
+
+UAnimInstance* APlayerCharacter::GetBodyAnimInstance() const
+{
+	TInlineComponentArray<USkeletalMeshComponent*> Meshes(this);
+	for (const USkeletalMeshComponent* SkeletalMesh : Meshes)
+	{
+		if (UFreeFlowAnimInstance* AnimInstance = Cast<UFreeFlowAnimInstance>(SkeletalMesh->GetAnimInstance()))
+		{
+			return AnimInstance;
+		}
+	}
+	return nullptr;
 }
 
 void APlayerCharacter::EnterCombat()
@@ -207,6 +303,11 @@ void APlayerCharacter::ExitCombat()
 
 void APlayerCharacter::HandleLocomotionStateChanged(EFreeFlowLocomotionState PreviousState, EFreeFlowLocomotionState NewState)
 {
+	if (NewState == EFreeFlowLocomotionState::Rolling || NewState == EFreeFlowLocomotionState::Sliding || NewState == EFreeFlowLocomotionState::Falling)
+	{
+		StopPunch();
+	}
+
 	switch (NewState)
 	{
 	case EFreeFlowLocomotionState::Standing:

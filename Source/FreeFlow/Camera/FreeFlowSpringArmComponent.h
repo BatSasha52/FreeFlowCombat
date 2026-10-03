@@ -49,10 +49,18 @@ protected:
 	FFreeFlowCameraProfile ActionProfile;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Modes", meta = (ClampMin = "0"))
-	float ProfileBlendSpeed = 4.f;
+	float ProfileBlendSpeed = 2.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Modes|Approach", meta = (ClampMin = "0"))
+	float ApproachLagSpeed = 30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Modes|Approach", meta = (ClampMin = "1", Units = "cm/s"))
+	float ApproachSpeedForFullLag = 300.f;
 
 private:
 	const FFreeFlowCameraProfile& GetActiveProfile() const;
+	float GetApproachAlpha() const;
 
 	EFreeFlowCameraMode CameraMode = EFreeFlowCameraMode::Exploration;
+	float BaseCameraLagSpeed = 0.f;
 };

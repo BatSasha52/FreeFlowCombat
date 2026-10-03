@@ -73,6 +73,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Locomotion")
 	bool HasMoveInput() const;
 
+	UFUNCTION(BlueprintPure, Category = "Locomotion")
+	bool CanAttack() const;
+
 	UPROPERTY(BlueprintAssignable, Category = "Locomotion")
 	FFreeFlowLocomotionStateChangedSignature OnStateChanged;
 
@@ -86,7 +89,10 @@ protected:
 	float RunSpeed = 550.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Locomotion|Speeds", meta = (ClampMin = "0", Units = "cm/s"))
-	float CrouchSpeed = 150.f;
+	float CrouchSpeed = 200.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Locomotion|Speeds", meta = (ClampMin = "0", Units = "s"))
+	float SprintStartDelay = 0.25f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Locomotion|Slide", meta = (ClampMin = "0", Units = "cm/s"))
 	float MinSlideEntrySpeed = 300.f;
@@ -120,6 +126,7 @@ private:
 	EFreeFlowLocomotionState State = EFreeFlowLocomotionState::Standing;
 	float TimeInState = 0.f;
 	bool bWantsToSprint = false;
+	float SprintHoldTime = 0.f;
 	bool bWantsToCrouch = false;
 	FVector ActionDirection = FVector::ForwardVector;
 };

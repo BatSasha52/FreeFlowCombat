@@ -16,6 +16,7 @@ void UFreeFlowSpringArmComponent::BeginPlay()
 	const FFreeFlowCameraProfile& Profile = GetActiveProfile();
 	TargetArmLength = Profile.ArmLength;
 	SocketOffset = Profile.SocketOffset;
+	BaseCameraLagSpeed = CameraLagSpeed;
 }
 
 void UFreeFlowSpringArmComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -23,6 +24,7 @@ void UFreeFlowSpringArmComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	const FFreeFlowCameraProfile& Profile = GetActiveProfile();
 	TargetArmLength = FMath::FInterpTo(TargetArmLength, Profile.ArmLength, DeltaTime, ProfileBlendSpeed);
 	SocketOffset = FMath::VInterpTo(SocketOffset, Profile.SocketOffset, DeltaTime, ProfileBlendSpeed);
+	CameraLagSpeed = FMath::Lerp(BaseCameraLagSpeed, FMath::Max(BaseCameraLagSpeed, ApproachLagSpeed), GetApproachAlpha());
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
@@ -30,6 +32,19 @@ void UFreeFlowSpringArmComponent::TickComponent(float DeltaTime, ELevelTick Tick
 void UFreeFlowSpringArmComponent::SetCameraMode(EFreeFlowCameraMode NewMode)
 {
 	CameraMode = NewMode;
+}
+
+float UFreeFlowSpringArmComponent::GetApproachAlpha() const
+{
+	const AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return 0.f;
+	}
+
+	const FVector ToCamera = (GetSocketLocation(SocketName) - GetComponentLocation()).GetSafeNormal2D();
+	const float ApproachSpeed = FVector::DotProduct(Owner->GetVelocity(), ToCamera);
+	return FMath::Clamp(ApproachSpeed / ApproachSpeedForFullLag, 0.f, 1.f);
 }
 
 const FFreeFlowCameraProfile& UFreeFlowSpringArmComponent::GetActiveProfile() const

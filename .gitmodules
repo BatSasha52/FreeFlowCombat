@@ -1,3 +1,6 @@
 [submodule "Plugins/AnimMCPToolset"]
 	path = Plugins/AnimMCPToolset
 	url = https://github.com/BatSasha52/AnimMCPToolset.git
+[submodule "Plugins/GameplayMCPToolset"]
+	path = Plugins/GameplayMCPToolset
+	url = https://github.com/BatSasha52/GameplayMCPToolset.git
